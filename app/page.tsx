@@ -62,15 +62,6 @@ export default function Home() {
     setCurrentInputs({})
   }
 
-  const addPlayer = () => {
-    setPlayers([...players, { id: Date.now(), name: "" }])
-  }
-
-  const removePlayer = (id: number) => {
-    setPlayers(players.filter(p => p.id !== id))
-  }
-
-  // ✅ 현재 판 점수 확정
   const submitRound = () => {
     if (currentRound > totalRounds) return
 
@@ -78,11 +69,7 @@ export default function Home() {
 
     players.forEach(player => {
       const value = Number(currentInputs[player.id] || 0)
-
-      if (!updated[player.id]) {
-        updated[player.id] = []
-      }
-
+      if (!updated[player.id]) updated[player.id] = []
       updated[player.id][currentRound - 1] = value
     })
 
@@ -91,16 +78,13 @@ export default function Home() {
     setCurrentRound(prev => prev + 1)
   }
 
-  // ✅ 지난 점수 수정
   const updatePastScore = (
     playerId: number,
     roundIndex: number,
     value: string
   ) => {
     const updated = { ...scores }
-
     if (!updated[playerId]) updated[playerId] = []
-
     updated[playerId][roundIndex] = Number(value)
     setScores(updated)
   }
@@ -112,10 +96,29 @@ export default function Home() {
     )
   }
 
+  // ✅ 순위 계산 (동점 처리)
+  const getRankings = () => {
+    const totals = players.map(player => ({
+      id: player.id,
+      total: getTotalScore(player.id)
+    }))
+
+    const sorted = [...totals].sort((a, b) => a.total - b.total)
+
+    const rankings: { [key: number]: number } = {}
+
+    sorted.forEach(player => {
+      const sameScoreIndex = sorted.findIndex(
+        p => p.total === player.total
+      )
+      rankings[player.id] = sameScoreIndex + 1
+    })
+
+    return rankings
+  }
+
   return (
     <div className="min-h-screen bg-sky-100 p-8">
-
-      {/* 상단 버튼 */}
       <div className="flex gap-4 mb-6">
         <button
           onClick={saveGame}
@@ -132,7 +135,6 @@ export default function Home() {
         </button>
       </div>
 
-      {/* 설정 화면 */}
       {!isStarted && (
         <div className="bg-white p-6 rounded-2xl shadow-lg max-w-lg mx-auto">
           <h1 className="text-2xl font-bold text-sky-600 mb-4">
@@ -157,128 +159,151 @@ export default function Home() {
                 }}
                 className="flex-1 p-2 border rounded"
               />
-              <button
-                onClick={() => removePlayer(player.id)}
-                className="bg-red-400 text-white px-3 rounded"
-              >
-                삭제
-              </button>
             </div>
           ))}
 
-          <div className="flex gap-2 mt-4">
-            <button
-              onClick={addPlayer}
-              className="bg-sky-400 text-white px-4 py-2 rounded"
-            >
-              플레이어 추가
-            </button>
-
-            <button
-              onClick={() => setIsStarted(true)}
-              className="bg-sky-600 text-white px-4 py-2 rounded"
-            >
-              시작
-            </button>
-          </div>
+          <button
+            onClick={() => setIsStarted(true)}
+            className="bg-sky-600 text-white px-4 py-2 rounded"
+          >
+            시작
+          </button>
         </div>
       )}
 
-      {/* 게임 화면 */}
       {isStarted && (
         <>
-          <h2 className="text-2xl font-bold text-center text-sky-700 mb-4">
-            {Math.min(currentRound, totalRounds)} / {totalRounds} 판
-          </h2>
+          {(() => {
+            const rankings = getRankings()
+            const maxRank = Math.max(...Object.values(rankings))
 
-          <div className="bg-white p-6 rounded-2xl shadow-md overflow-x-auto">
-            <table className="w-full text-center border">
-              <thead className="bg-sky-200">
-                <tr>
-                  <th className="border p-2">판</th>
-                  {players.map(player => (
-                    <th key={player.id} className="border p-2">
-                      {player.name}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
+            return (
+              <>
+                <h2 className="text-2xl font-bold text-center text-sky-700 mb-4">
+                  {Math.min(currentRound, totalRounds)} / {totalRounds} 판
+                </h2>
 
-              <tbody>
-                {[...Array(totalRounds)].map((_, roundIndex) => (
-                  <tr key={roundIndex}>
-                    <td className="border p-2">
-                      {roundIndex + 1}
-                    </td>
+                <div className="bg-white p-6 rounded-2xl shadow-md overflow-x-auto">
+                  <table className="w-full text-center border">
+                    <thead className="bg-sky-200">
+                      <tr>
+                        <th className="border p-2">판</th>
+                        {players.map(player => {
+                          const rank = rankings[player.id]
 
-                    {players.map(player => {
-                      const isCurrent =
-                        roundIndex === currentRound - 1 &&
-                        currentRound <= totalRounds
+                          let badge = ""
+                          if (rank === 1) badge = " 🥇"
+                          else if (rank === 2) badge = " 🥈"
+                          else if (rank === 3) badge = " 🥉"
 
-                      return (
-                        <td key={player.id} className="border p-2">
-                          {isCurrent ? (
-                            // ✅ 현재 판 입력창
-                            <input
-                              type="number"
-                              value={
-                                currentInputs[player.id] || ""
-                              }
-                              onChange={(e) =>
-                                setCurrentInputs({
-                                  ...currentInputs,
-                                  [player.id]: e.target.value
-                                })
-                              }
-                              className="w-20 text-center border rounded p-1 bg-yellow-100"
-                            />
-                          ) : (
-                            // ✅ 과거 점수 수정 가능
-                            <input
-                              type="number"
-                              value={
-                                scores[player.id]?.[roundIndex] ??
-                                ""
-                              }
-                              onChange={(e) =>
-                                updatePastScore(
-                                  player.id,
-                                  roundIndex,
-                                  e.target.value
-                                )
-                              }
-                              className="w-20 text-center border rounded p-1"
-                            />
-                          )}
+                          const isLast =
+                            rank === maxRank && maxRank > 1
+
+                          return (
+                            <th key={player.id} className="border p-2">
+                              {player.name}
+                              {badge}
+                              {isLast && " 💀"}
+                            </th>
+                          )
+                        })}
+                      </tr>
+                    </thead>
+
+                    <tbody>
+                      {/* 🔥 플레이어 바로 아래 총점 행 */}
+                      <tr className="bg-yellow-100 font-bold">
+                        <td className="border p-2">
+                          현재 총점
                         </td>
-                      )
-                    })}
-                  </tr>
-                ))}
+                        {players.map(player => (
+                          <td key={player.id} className="border p-2">
+                            {getTotalScore(player.id)}
+                          </td>
+                        ))}
+                      </tr>
 
-                <tr className="font-bold bg-sky-100">
-                  <td className="border p-2">총점</td>
-                  {players.map(player => (
-                    <td key={player.id} className="border p-2">
-                      {getTotalScore(player.id)}
-                    </td>
-                  ))}
-                </tr>
-              </tbody>
-            </table>
-          </div>
+                      {[...Array(totalRounds)].map((_, roundIndex) => (
+                        <tr key={roundIndex}>
+                          <td className="border p-2">
+                            {roundIndex + 1}
+                          </td>
 
-          {currentRound <= totalRounds && (
-            <div className="text-center mt-4">
-              <button
-                onClick={submitRound}
-                className="bg-sky-600 text-white px-6 py-2 rounded"
-              >
-                다음 판
-              </button>
-            </div>
-          )}
+                          {players.map(player => {
+                            const isCurrent =
+                              roundIndex === currentRound - 1 &&
+                              currentRound <= totalRounds
+
+                            return (
+                              <td
+                                key={player.id}
+                                className="border p-2"
+                              >
+                                {isCurrent ? (
+                                  <input
+                                    type="number"
+                                    min={-9999}
+                                    value={
+                                      currentInputs[player.id] || ""
+                                    }
+                                    onChange={(e) =>
+                                      setCurrentInputs({
+                                        ...currentInputs,
+                                        [player.id]: e.target.value
+                                      })
+                                    }
+                                    className="w-20 text-center border rounded p-1 bg-yellow-50"
+                                  />
+                                ) : (
+                                  <input
+                                    type="number"
+                                    min={-9999}
+                                    value={
+                                      scores[player.id]?.[
+                                        roundIndex
+                                      ] ?? ""
+                                    }
+                                    onChange={(e) =>
+                                      updatePastScore(
+                                        player.id,
+                                        roundIndex,
+                                        e.target.value
+                                      )
+                                    }
+                                    className="w-20 text-center border rounded p-1"
+                                  />
+                                )}
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      ))}
+
+                      <tr className="font-bold bg-sky-100">
+                        <td className="border p-2">최종 총점</td>
+                        {players.map(player => (
+                          <td key={player.id} className="border p-2">
+                            {getTotalScore(player.id)}
+                          </td>
+                        ))}
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {currentRound <= totalRounds && (
+                  <div className="text-center mt-4">
+                    <button
+                      onClick={submitRound}
+                      className="bg-sky-600 text-white px-6 py-2 rounded"
+                    >
+                      다음 판
+                    </button>
+                  </div>
+                )}
+              </>
+            )
+          })()}
         </>
       )}
     </div>
