@@ -1,65 +1,247 @@
-import Image from "next/image";
+"use client"
+
+import { useState } from "react"
 
 export default function Home() {
+  const [players, setPlayers] = useState([{ id: 1, name: "" }])
+  const [totalRounds, setTotalRounds] = useState(5)
+  const [currentRound, setCurrentRound] = useState(1)
+  const [scores, setScores] = useState<{ [key: number]: number[] }>({})
+  const [isStarted, setIsStarted] = useState(false)
+  const [currentInputs, setCurrentInputs] = useState<{ [key: number]: string }>({})
+  // 수정 중인 셀 상태
+  const [editing, setEditing] = useState<{
+    playerId: number
+    roundIndex: number
+  } | null>(null)
+
+  const addPlayer = () => {
+    setPlayers([...players, { id: Date.now(), name: "" }])
+  }
+
+  const removePlayer = (id: number) => {
+    setPlayers(players.filter(p => p.id !== id))
+  }
+
+  const handleScoreChange = (playerId: number, roundIndex: number, value: number) => {
+    const newScores = { ...scores }
+    if (!newScores[playerId]) newScores[playerId] = []
+    newScores[playerId][roundIndex] = value
+    setScores(newScores)
+  }
+
+  const nextRound = () => {
+    if (currentRound <= totalRounds) {
+
+      // 점수 저장
+      players.forEach(player => {
+        const value = Number(currentInputs[player.id] || 0)
+        handleScoreChange(player.id, currentRound - 1, value)
+      })
+
+      // 입력창 초기화
+      setCurrentInputs({})
+
+      setCurrentRound(prev => prev + 1)
+    }
+  }
+
+  const getTotalScore = (playerId: number) => {
+    return (scores[playerId] || []).reduce((a, b) => a + (b || 0), 0)
+  }
+
+const isCurrentRoundComplete = () => {
+  return players.every(player =>
+    currentInputs[player.id] !== undefined &&
+    currentInputs[player.id] !== ""
+  )
+}
+  console.log(currentRound, totalRounds)
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <div className="min-h-screen bg-sky-100 p-8">
+
+      {!isStarted && (
+        <div className="bg-white p-6 rounded-2xl shadow-lg max-w-lg mx-auto">
+          <h1 className="text-2xl font-bold text-sky-600 mb-4">
+            게임 설정
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+
+          <input
+            type="number"
+            value={totalRounds}
+            onChange={(e) => setTotalRounds(Number(e.target.value))}
+            className="w-full mb-4 p-2 border rounded"
+          />
+
+          {players.map((player, i) => (
+            <div key={player.id} className="flex gap-2 mb-2">
+              <input
+                value={player.name}
+                onChange={(e) => {
+                  const newPlayers = [...players]
+                  newPlayers[i].name = e.target.value
+                  setPlayers(newPlayers)
+                }}
+                className="flex-1 p-2 border rounded"
+                placeholder={`플레이어 ${i + 1}`}
+              />
+              <button
+                onClick={() => removePlayer(player.id)}
+                className="bg-red-400 text-white px-3 rounded"
+              >
+                삭제
+              </button>
+            </div>
+          ))}
+
+          <div className="flex gap-2 mt-4">
+            <button
+              onClick={addPlayer}
+              className="bg-sky-400 text-white px-4 py-2 rounded"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+              플레이어 추가
+            </button>
+
+            <button
+              onClick={() => setIsStarted(true)}
+              className="bg-sky-600 text-white px-4 py-2 rounded"
             >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+              시작
+            </button>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      )}
+
+      {isStarted && (
+        <>
+          <h2 className="text-2xl font-bold text-center text-sky-700 mb-6">
+            {currentRound} / {totalRounds} 판
+          </h2>
+
+          {/* 현재 판 입력 카드 */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            {players.map(player => (
+              <div
+                key={player.id}
+                className="bg-white rounded-2xl shadow-md p-6"
+              >
+                <h3 className="text-xl font-bold text-sky-600">
+                  {player.name}
+                </h3>
+
+                <input
+                  type="number"
+                  value={currentInputs[player.id] || ""}
+                  onChange={(e) =>
+                    setCurrentInputs({
+                      ...currentInputs,
+                      [player.id]: e.target.value
+                    })
+                  }
+                  className="w-full mt-4 p-2 border rounded"
+                  placeholder="이번 판 점수"
+                />
+
+                <p className="mt-4 font-semibold">
+                  누적: {getTotalScore(player.id)}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* 점수 테이블 */}
+          <div className="bg-white p-6 rounded-2xl shadow-md overflow-x-auto">
+            <table className="w-full text-center border">
+              <thead className="bg-sky-200">
+                <tr>
+                  <th className="p-2 border">플레이어</th>
+                  {[...Array(totalRounds)].map((_, i) => (
+                    <th key={i} className="p-2 border">
+                      {i + 1}판
+                    </th>
+                  ))}
+                  <th className="p-2 border">총합</th>
+                </tr>
+              </thead>
+              <tbody>
+                {players.map(player => (
+                  <tr key={player.id}>
+                    <td className="border p-2 font-semibold">
+                      {player.name}
+                    </td>
+
+                    {[...Array(totalRounds)].map((_, i) => (
+                      <td
+                        key={i}
+                        className="border p-2 cursor-pointer"
+                        onClick={() =>
+                          setEditing({ playerId: player.id, roundIndex: i })
+                        }
+                      >
+                        {editing &&
+                          editing.playerId === player.id &&
+                          editing.roundIndex === i ? (
+                          <input
+                            type="number"
+                            autoFocus
+                            defaultValue={scores[player.id]?.[i] ?? ""}
+                            onBlur={(e) => {
+                              handleScoreChange(
+                                player.id,
+                                i,
+                                Number(e.target.value)
+                              )
+                              setEditing(null)
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                handleScoreChange(
+                                  player.id,
+                                  i,
+                                  Number(
+                                    (e.target as HTMLInputElement).value
+                                  )
+                                )
+                                setEditing(null)
+                              }
+                            }}
+                            className="w-full text-center border rounded"
+                          />
+                        ) : (
+                          scores[player.id]?.[i] ?? "-"
+                        )}
+                      </td>
+                    ))}
+
+                    <td className="border p-2 font-bold">
+                      {getTotalScore(player.id)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="text-center mt-6">
+            {currentRound <= totalRounds ? (
+              <button
+                onClick={nextRound}
+                disabled={!isCurrentRoundComplete()}
+                className={`px-6 py-3 rounded-xl text-white ${isCurrentRoundComplete()
+                  ? "bg-sky-600"
+                  : "bg-gray-400 cursor-not-allowed"
+                  }`}
+              >
+                다음 판
+              </button>
+            ) : (
+              <div className="text-2xl font-bold text-green-600">
+                🎉 게임 종료!
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </div>
-  );
+  )
 }
