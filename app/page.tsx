@@ -241,35 +241,44 @@ export default function Home() {
                               >
                                 {isCurrent ? (
                                   <input
-                                    type="number"
-                                    min={-9999}
+                                    type="text"
+                                    inputMode="decimal"
                                     value={
                                       currentInputs[player.id] || ""
                                     }
-                                    onChange={(e) =>
-                                      setCurrentInputs({
-                                        ...currentInputs,
-                                        [player.id]: e.target.value
-                                      })
-                                    }
+                                    onChange={(e) => {
+                                      const value = e.target.value
+
+                                      // 숫자 + 마이너스 + 소수점만 허용
+                                      if (/^-?\d*\.?\d*$/.test(value)) {
+                                        setCurrentInputs({
+                                          ...currentInputs,
+                                          [player.id]: value
+                                        })
+                                      }
+                                    }}
                                     className="w-20 text-center border rounded p-1 bg-yellow-50"
                                   />
                                 ) : (
                                   <input
-                                    type="number"
-                                    min={-9999}
+                                    type="text"
+                                    inputMode="decimal"
                                     value={
                                       scores[player.id]?.[
-                                        roundIndex
+                                      roundIndex
                                       ] ?? ""
                                     }
-                                    onChange={(e) =>
-                                      updatePastScore(
-                                        player.id,
-                                        roundIndex,
-                                        e.target.value
-                                      )
-                                    }
+                                    onChange={(e) => {
+                                      const value = e.target.value
+
+                                      // 숫자 + 마이너스 + 소수점만 허용
+                                      if (/^-?\d*\.?\d*$/.test(value)) {
+                                        setCurrentInputs({
+                                          ...currentInputs,
+                                          [player.id]: value
+                                        })
+                                      }
+                                    }}
                                     className="w-20 text-center border rounded p-1"
                                   />
                                 )}
