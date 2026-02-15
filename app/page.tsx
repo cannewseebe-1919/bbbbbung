@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { supabase } from "@/lib/supabase"
 
 export default function Home() {
   const [players, setPlayers] = useState([{ id: 1, name: "" }])
@@ -9,10 +10,57 @@ export default function Home() {
   const [scores, setScores] = useState<{ [key: number]: number[] }>({})
   const [isStarted, setIsStarted] = useState(false)
   const [currentInputs, setCurrentInputs] = useState<{ [key: number]: string }>({})
-  const [editing, setEditing] = useState<{
-    playerId: number
-    roundIndex: number
-  } | null>(null)
+
+  useEffect(() => {
+    loadGame()
+  }, [])
+
+  const loadGame = async () => {
+    const { data } = await supabase
+      .from("game_state")
+      .select("*")
+      .eq("id", 1)
+      .single()
+
+    if (data) {
+      setPlayers(data.players?.length ? data.players : [{ id: 1, name: "" }])
+      setScores(data.scores || {})
+      setTotalRounds(data.total_rounds || 5)
+      setCurrentRound(data.current_round || 1)
+      setIsStarted(data.is_started || false)
+    }
+  }
+
+  const saveGame = async () => {
+    await supabase.from("game_state").update({
+      players,
+      scores,
+      total_rounds: totalRounds,
+      current_round: currentRound,
+      is_started: isStarted
+    }).eq("id", 1)
+
+    alert("저장되었습니다 ✅")
+  }
+
+  const resetGame = async () => {
+    if (!confirm("정말 새 게임을 시작하시겠습니까?")) return
+
+    await supabase.from("game_state").update({
+      players: [{ id: 1, name: "" }],
+      scores: {},
+      total_rounds: 5,
+      current_round: 1,
+      is_started: false
+    }).eq("id", 1)
+
+    setPlayers([{ id: 1, name: "" }])
+    setScores({})
+    setTotalRounds(5)
+    setCurrentRound(1)
+    setIsStarted(false)
+    setCurrentInputs({})
+  }
 
   const addPlayer = () => {
     setPlayers([...players, { id: Date.now(), name: "" }])
@@ -22,66 +70,69 @@ export default function Home() {
     setPlayers(players.filter(p => p.id !== id))
   }
 
-  // 점수 수정 함수
-  const handleScoreChange = (
-    playerId: number,
-    roundIndex: number,
-    value: number
-  ) => {
-    setScores(prev => {
-      const updated = { ...prev }
-      if (!updated[playerId]) updated[playerId] = []
-      updated[playerId][roundIndex] = value
-      return updated
+  // ✅ 현재 판 점수 확정
+  const submitRound = () => {
+    if (currentRound > totalRounds) return
+
+    const updated = { ...scores }
+
+    players.forEach(player => {
+      const value = Number(currentInputs[player.id] || 0)
+
+      if (!updated[player.id]) {
+        updated[player.id] = []
+      }
+
+      updated[player.id][currentRound - 1] = value
     })
+
+    setScores(updated)
+    setCurrentInputs({})
+    setCurrentRound(prev => prev + 1)
   }
 
-  const nextRound = () => {
-    if (currentRound <= totalRounds) {
-      setScores(prev => {
-        const updated = { ...prev }
+  // ✅ 지난 점수 수정
+  const updatePastScore = (
+    playerId: number,
+    roundIndex: number,
+    value: string
+  ) => {
+    const updated = { ...scores }
 
-        players.forEach(player => {
-          const value = Number(currentInputs[player.id] || 0)
-          if (!updated[player.id]) updated[player.id] = []
-          updated[player.id][currentRound - 1] = value
-        })
+    if (!updated[playerId]) updated[playerId] = []
 
-        return updated
-      })
-
-      setCurrentInputs({})
-      setCurrentRound(prev => prev + 1)
-    }
+    updated[playerId][roundIndex] = Number(value)
+    setScores(updated)
   }
 
   const getTotalScore = (playerId: number) => {
-    return (scores[playerId] || []).reduce((a, b) => a + (b || 0), 0)
-  }
-
-  const isCurrentRoundComplete = () => {
-    return players.every(
-      player =>
-        currentInputs[player.id] !== undefined &&
-        currentInputs[player.id] !== ""
+    return (scores[playerId] || []).reduce(
+      (a, b) => a + (b || 0),
+      0
     )
   }
 
-  // 🏆 순위 계산
-  const rankedPlayers = [...players]
-    .map(player => ({
-      id: player.id,
-      total: getTotalScore(player.id)
-    }))
-    .sort((a, b) => b.total - a.total)
-
-  const rankMap: { [key: number]: number } = {}
-  rankedPlayers.forEach((player, index) => {
-    rankMap[player.id] = index + 1
-  })
-
   return (
     <div className="min-h-screen bg-sky-100 p-8">
+
+      {/* 상단 버튼 */}
+      <div className="flex gap-4 mb-6">
+        <button
+          onClick={saveGame}
+          className="bg-green-500 text-white px-4 py-2 rounded"
+        >
+          💾 저장
+        </button>
+
+        <button
+          onClick={resetGame}
+          className="bg-red-500 text-white px-4 py-2 rounded"
+        >
+          🔄 새 게임
+        </button>
+      </div>
+
+      {/* 설정 화면 */}
       {!isStarted && (
         <div className="bg-white p-6 rounded-2xl shadow-lg max-w-lg mx-auto">
           <h1 className="text-2xl font-bold text-sky-600 mb-4">
@@ -105,7 +156,6 @@ export default function Home() {
                   setPlayers(newPlayers)
                 }}
                 className="flex-1 p-2 border rounded"
-                placeholder={`플레이어 ${i + 1}`}
               />
               <button
                 onClick={() => removePlayer(player.id)}
@@ -134,49 +184,13 @@ export default function Home() {
         </div>
       )}
 
+      {/* 게임 화면 */}
       {isStarted && (
         <>
           <h2 className="text-2xl font-bold text-center text-sky-700 mb-4">
-            {currentRound} / {totalRounds} 판
+            {Math.min(currentRound, totalRounds)} / {totalRounds} 판
           </h2>
 
-          {/* 상단 점수 입력 */}
-          <div className="bg-white p-4 rounded-xl shadow mb-6">
-            <div className="flex flex-wrap items-center gap-4 justify-center">
-              {players.map(player => (
-                <div key={player.id} className="flex items-center gap-2">
-                  <span className="font-semibold text-sm">
-                    {player.name}
-                  </span>
-                  <input
-                    type="number"
-                    value={currentInputs[player.id] || ""}
-                    onChange={(e) =>
-                      setCurrentInputs({
-                        ...currentInputs,
-                        [player.id]: e.target.value
-                      })
-                    }
-                    className="w-20 p-1 border rounded text-center"
-                  />
-                </div>
-              ))}
-
-              <button
-                onClick={nextRound}
-                disabled={!isCurrentRoundComplete()}
-                className={`px-4 py-1 rounded text-white text-sm ${
-                  isCurrentRoundComplete()
-                    ? "bg-sky-600"
-                    : "bg-gray-400 cursor-not-allowed"
-                }`}
-              >
-                다음 판
-              </button>
-            </div>
-          </div>
-
-          {/* 점수표 */}
           <div className="bg-white p-6 rounded-2xl shadow-md overflow-x-auto">
             <table className="w-full text-center border">
               <thead className="bg-sky-200">
@@ -184,12 +198,7 @@ export default function Home() {
                   <th className="border p-2">판</th>
                   {players.map(player => (
                     <th key={player.id} className="border p-2">
-                      <div className="flex items-center justify-center gap-1">
-                        {player.name}
-                        {rankMap[player.id] === 1 && "🥇"}
-                        {rankMap[player.id] === 2 && "🥈"}
-                        {rankMap[player.id] === 3 && "🥉"}
-                      </div>
+                      {player.name}
                     </th>
                   ))}
                 </tr>
@@ -197,65 +206,50 @@ export default function Home() {
 
               <tbody>
                 {[...Array(totalRounds)].map((_, roundIndex) => (
-                  <tr
-                    key={roundIndex}
-                    className={
-                      roundIndex === currentRound - 1
-                        ? "bg-sky-100"
-                        : ""
-                    }
-                  >
-                    <td className="border p-2 font-semibold">
-                      {roundIndex + 1}판
+                  <tr key={roundIndex}>
+                    <td className="border p-2">
+                      {roundIndex + 1}
                     </td>
 
                     {players.map(player => {
-                      const isEditing =
-                        editing?.playerId === player.id &&
-                        editing?.roundIndex === roundIndex
+                      const isCurrent =
+                        roundIndex === currentRound - 1 &&
+                        currentRound <= totalRounds
 
                       return (
-                        <td
-                          key={player.id}
-                          className="border p-2 cursor-pointer"
-                          onClick={() =>
-                            setEditing({
-                              playerId: player.id,
-                              roundIndex
-                            })
-                          }
-                        >
-                          {isEditing ? (
+                        <td key={player.id} className="border p-2">
+                          {isCurrent ? (
+                            // ✅ 현재 판 입력창
                             <input
                               type="number"
-                              autoFocus
-                              defaultValue={
-                                scores[player.id]?.[roundIndex] ?? ""
+                              value={
+                                currentInputs[player.id] || ""
                               }
-                              className="w-16 p-1 border rounded text-center"
-                              onBlur={(e) => {
-                                handleScoreChange(
-                                  player.id,
-                                  roundIndex,
-                                  Number(e.target.value)
-                                )
-                                setEditing(null)
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  handleScoreChange(
-                                    player.id,
-                                    roundIndex,
-                                    Number(
-                                      (e.target as HTMLInputElement).value
-                                    )
-                                  )
-                                  setEditing(null)
-                                }
-                              }}
+                              onChange={(e) =>
+                                setCurrentInputs({
+                                  ...currentInputs,
+                                  [player.id]: e.target.value
+                                })
+                              }
+                              className="w-20 text-center border rounded p-1 bg-yellow-100"
                             />
                           ) : (
-                            scores[player.id]?.[roundIndex] ?? "-"
+                            // ✅ 과거 점수 수정 가능
+                            <input
+                              type="number"
+                              value={
+                                scores[player.id]?.[roundIndex] ??
+                                ""
+                              }
+                              onChange={(e) =>
+                                updatePastScore(
+                                  player.id,
+                                  roundIndex,
+                                  e.target.value
+                                )
+                              }
+                              className="w-20 text-center border rounded p-1"
+                            />
                           )}
                         </td>
                       )
@@ -263,7 +257,6 @@ export default function Home() {
                   </tr>
                 ))}
 
-                {/* 총점 */}
                 <tr className="font-bold bg-sky-100">
                   <td className="border p-2">총점</td>
                   {players.map(player => (
@@ -275,6 +268,17 @@ export default function Home() {
               </tbody>
             </table>
           </div>
+
+          {currentRound <= totalRounds && (
+            <div className="text-center mt-4">
+              <button
+                onClick={submitRound}
+                className="bg-sky-600 text-white px-6 py-2 rounded"
+              >
+                다음 판
+              </button>
+            </div>
+          )}
         </>
       )}
     </div>
