@@ -62,10 +62,20 @@ export default function Home() {
     setCurrentInputs({})
   }
 
-  // ✅ "-" / "" → 0 처리
+  // ✅ 안전 숫자 변환 (빈값 / "-" → 0)
   const safeNumber = (value?: string) => {
     if (!value || value === "-") return 0
     return Number(value)
+  }
+
+  // ✅ 플레이어 추가
+  const addPlayer = () => {
+    const newId =
+      players.length > 0
+        ? Math.max(...players.map(p => p.id)) + 1
+        : 1
+
+    setPlayers([...players, { id: newId, name: "" }])
   }
 
   const submitRound = () => {
@@ -75,9 +85,8 @@ export default function Home() {
 
     players.forEach(player => {
       if (!updated[player.id]) updated[player.id] = []
-
-      const raw = currentInputs[player.id]
-      updated[player.id][currentRound - 1] = safeNumber(raw)
+      updated[player.id][currentRound - 1] =
+        safeNumber(currentInputs[player.id])
     })
 
     setScores(updated)
@@ -92,13 +101,15 @@ export default function Home() {
   ) => {
     const updated = { ...scores }
     if (!updated[playerId]) updated[playerId] = []
-
     updated[playerId][roundIndex] = safeNumber(value)
     setScores(updated)
   }
 
   const getTotalScore = (playerId: number) => {
-    return (scores[playerId] || []).reduce((a, b) => a + (b || 0), 0)
+    return (scores[playerId] || []).reduce(
+      (a, b) => a + (b || 0),
+      0
+    )
   }
 
   const getRankings = () => {
@@ -168,16 +179,26 @@ export default function Home() {
             게임 설정
           </h1>
 
+          <label className="block mb-2 font-semibold">
+            총 판 수
+          </label>
           <input
             type="number"
             value={totalRounds}
-            onChange={(e) => setTotalRounds(Number(e.target.value))}
+            onChange={(e) =>
+              setTotalRounds(Number(e.target.value))
+            }
             className="w-full mb-4 p-2 border rounded"
           />
+
+          <label className="block mb-2 font-semibold">
+            플레이어 이름
+          </label>
 
           {players.map((player, i) => (
             <div key={player.id} className="flex gap-2 mb-2">
               <input
+                placeholder={`플레이어 ${i + 1}`}
                 value={player.name}
                 onChange={(e) => {
                   const newPlayers = [...players]
@@ -190,8 +211,16 @@ export default function Home() {
           ))}
 
           <button
+            type="button"
+            onClick={addPlayer}
+            className="w-full mb-4 bg-sky-200 hover:bg-sky-300 p-2 rounded"
+          >
+            ➕ 플레이어 추가
+          </button>
+
+          <button
             onClick={() => setIsStarted(true)}
-            className="bg-sky-600 text-white px-4 py-2 rounded"
+            className="w-full bg-sky-600 text-white px-4 py-2 rounded"
           >
             시작
           </button>
@@ -207,7 +236,8 @@ export default function Home() {
             return (
               <>
                 <h2 className="text-2xl font-bold text-center text-sky-700 mb-4">
-                  {Math.min(currentRound, totalRounds)} / {totalRounds} 판
+                  {Math.min(currentRound, totalRounds)} /{" "}
+                  {totalRounds} 판
                 </h2>
 
                 <div className="bg-white p-6 rounded-2xl shadow-md overflow-x-auto">
@@ -216,16 +246,26 @@ export default function Home() {
                       <tr>
                         <th className="border p-2">판</th>
                         {players.map(player => {
-                          const rank = rankings[player.id]
+                          const rank =
+                            rankings[player.id]
                           let badge = ""
-                          if (rank === 1) badge = " 🥇"
-                          else if (rank === 2) badge = " 🥈"
-                          else if (rank === 3) badge = " 🥉"
 
-                          const isLast = rank === maxRank && maxRank > 1
+                          if (rank === 1)
+                            badge = " 🥇"
+                          else if (rank === 2)
+                            badge = " 🥈"
+                          else if (rank === 3)
+                            badge = " 🥉"
+
+                          const isLast =
+                            rank === maxRank &&
+                            maxRank > 1
 
                           return (
-                            <th key={player.id} className="border p-2">
+                            <th
+                              key={player.id}
+                              className="border p-2"
+                            >
                               {player.name}
                               {badge}
                               {isLast && " 💀"}
@@ -237,75 +277,136 @@ export default function Home() {
 
                     <tbody>
                       <tr className="bg-yellow-100 font-bold">
-                        <td className="border p-2">현재 총점</td>
+                        <td className="border p-2">
+                          현재 총점
+                        </td>
                         {players.map(player => (
-                          <td key={player.id} className="border p-2">
-                            {getTotalScore(player.id)}
+                          <td
+                            key={player.id}
+                            className="border p-2"
+                          >
+                            {getTotalScore(
+                              player.id
+                            )}
                           </td>
                         ))}
                       </tr>
 
-                      {[...Array(totalRounds)].map((_, roundIndex) => (
-                        <tr key={roundIndex}>
-                          <td className="border p-2">
-                            {roundIndex + 1}
-                          </td>
+                      {[...Array(totalRounds)].map(
+                        (_, roundIndex) => (
+                          <tr key={roundIndex}>
+                            <td className="border p-2">
+                              {roundIndex + 1}
+                            </td>
 
-                          {players.map(player => {
-                            const isCurrent =
-                              roundIndex === currentRound - 1 &&
-                              currentRound <= totalRounds
+                            {players.map(
+                              player => {
+                                const isCurrent =
+                                  roundIndex ===
+                                    currentRound -
+                                      1 &&
+                                  currentRound <=
+                                    totalRounds
 
-                            return (
-                              <td key={player.id} className="border p-2">
-                                <div className="flex justify-center items-center gap-1">
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      toggleSign(player.id, isCurrent ? undefined : roundIndex)
+                                return (
+                                  <td
+                                    key={
+                                      player.id
                                     }
-                                    className="px-2 py-1 bg-gray-200 rounded"
+                                    className="border p-2"
                                   >
-                                    ±
-                                  </button>
-
-                                  <input
-                                    type="text"
-                                    inputMode="numeric"
-                                    value={
-                                      isCurrent
-                                        ? currentInputs[player.id] || ""
-                                        : scores[player.id]?.[roundIndex] ?? ""
-                                    }
-                                    onChange={(e) => {
-                                      const value = e.target.value
-                                      if (/^-?\d*$/.test(value)) {
-                                        if (isCurrent) {
-                                          setCurrentInputs({
-                                            ...currentInputs,
-                                            [player.id]: value
-                                          })
-                                        } else {
-                                          updatePastScore(player.id, roundIndex, value)
+                                    <div className="flex justify-center items-center gap-1">
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          toggleSign(
+                                            player.id,
+                                            isCurrent
+                                              ? undefined
+                                              : roundIndex
+                                          )
                                         }
-                                      }
-                                    }}
-                                    className={`w-20 text-center border rounded p-1 ${
-                                      isCurrent ? "bg-yellow-50" : ""
-                                    }`}
-                                  />
-                                </div>
-                              </td>
-                            )
-                          })}
-                        </tr>
-                      ))}
+                                        className="px-2 py-1 bg-gray-200 rounded"
+                                      >
+                                        ±
+                                      </button>
+
+                                      <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        value={
+                                          isCurrent
+                                            ? currentInputs[
+                                                player.id
+                                              ] ||
+                                              ""
+                                            : scores[
+                                                player
+                                                  .id
+                                              ]?.[
+                                                roundIndex
+                                              ] ??
+                                              ""
+                                        }
+                                        onChange={(
+                                          e
+                                        ) => {
+                                          const value =
+                                            e.target
+                                              .value
+                                          if (
+                                            /^-?\d*$/.test(
+                                              value
+                                            )
+                                          ) {
+                                            if (
+                                              isCurrent
+                                            ) {
+                                              setCurrentInputs(
+                                                {
+                                                  ...currentInputs,
+                                                  [
+                                                    player.id
+                                                  ]:
+                                                    value
+                                                }
+                                              )
+                                            } else {
+                                              updatePastScore(
+                                                player.id,
+                                                roundIndex,
+                                                value
+                                              )
+                                            }
+                                          }
+                                        }}
+                                        className={`w-20 text-center border rounded p-1 ${
+                                          isCurrent
+                                            ? "bg-yellow-50"
+                                            : ""
+                                        }`}
+                                      />
+                                    </div>
+                                  </td>
+                                )
+                              }
+                            )}
+                          </tr>
+                        )
+                      )}
 
                       <tr className="font-bold bg-sky-100">
-                        <td className="border p-2">최종 총점</td>
+                        <td className="border p-2">
+                          최종 총점
+                        </td>
                         {players.map(player => (
-                          <td key={player.id} className="border p-2">
-                            {getTotalScore(player.id)}
+                          <td
+                            key={player.id}
+                            className="border p-2"
+                          >
+                            {getTotalScore(
+                              player.id
+                            )}
                           </td>
                         ))}
                       </tr>
@@ -313,7 +414,8 @@ export default function Home() {
                   </table>
                 </div>
 
-                {currentRound <= totalRounds && (
+                {currentRound <=
+                  totalRounds && (
                   <div className="text-center mt-4">
                     <button
                       onClick={submitRound}
